@@ -1,0 +1,61 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract project zip (if present)
+        run: |
+          if [ -f anti_theft_pocket_shield.zip ]; then
+            echo "Zip file found! Extracting..."
+            unzip -o anti_theft_pocket_shield.zip
+            # If the zip contained a sub-folder, move its contents to the root
+            if [ -d anti_theft_pocket_shield ]; then
+              echo "Moving files from anti_theft_pocket_shield to root..."
+              cp -r anti_theft_pocket_shield/* . || true
+              cp -r anti_theft_pocket_shield/.* . || true
+              rm -rf anti_theft_pocket_shield
+            fi
+          fi
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Create empty sound asset (if missing)
+        run: |
+          mkdir -p assets/sounds
+          if [ ! -f assets/sounds/alarm.mp3 ]; then
+            echo "Creating fallback sound asset..."
+            echo -n "RIFF....WAVEfmt " > assets/sounds/alarm.mp3
+          fi
+
+      - name: Build APK
+        run: flutter build apk --debug
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pocket-shield-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
